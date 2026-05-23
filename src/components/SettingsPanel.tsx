@@ -1,7 +1,60 @@
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useCalcStore, THEMES, ThemeId } from '@/store/calculatorStore';
 
 export default function SettingsPanel() {
+  const [isInstallable, setIsInstallable] = useState(false);
+  const [isInstalled, setIsInstalled] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    // Check if running in standalone mode (already installed)
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    setIsInstalled(!!isStandalone);
+
+    // Detect iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const ios = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(ios);
+
+    // Check if installable (deferredPrompt exists)
+    if (window.deferredPrompt) {
+      setIsInstallable(true);
+    }
+
+    const handleInstallable = () => {
+      setIsInstallable(true);
+    };
+
+    const handleInstalled = () => {
+      setIsInstalled(true);
+      setIsInstallable(false);
+    };
+
+    window.addEventListener('pwa-installable', handleInstallable);
+    window.addEventListener('pwa-installed', handleInstalled);
+
+    return () => {
+      window.removeEventListener('pwa-installable', handleInstallable);
+      window.removeEventListener('pwa-installed', handleInstalled);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    const promptEvent = window.deferredPrompt;
+    if (!promptEvent) return;
+
+    // Show the install prompt
+    promptEvent.prompt();
+
+    // Wait for the user to respond to the prompt
+    const { outcome } = await promptEvent.userChoice;
+    console.log(`User response to install prompt: ${outcome}`);
+
+    // We've used the prompt, and can't use it again
+    window.deferredPrompt = null;
+    setIsInstallable(false);
+  };
   const {
     theme, setTheme, soundEnabled, toggleSound,
     particlesEnabled, toggleParticles, angleMode, setAngleMode, setPanel,
@@ -162,6 +215,76 @@ export default function SettingsPanel() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* PWA Install Section */}
+        <div className="glass rounded-xl p-4 space-y-4">
+          <h3 className="text-xs font-mono text-white/40 uppercase tracking-wider">App Installation</h3>
+          
+          <div className="flex items-center gap-4">
+            {/* Catchy App Icon with Glow */}
+            <div className="relative w-16 h-16 rounded-2xl overflow-hidden flex-shrink-0"
+                 style={{ 
+                   border: `1px solid rgba(${colors.primaryRgb}, 0.3)`,
+                   boxShadow: `0 0 20px rgba(${colors.primaryRgb}, 0.25)` 
+                 }}
+            >
+              <img 
+                src="icon.png" 
+                alt="Calculus X Icon" 
+                className="w-full h-full object-cover" 
+              />
+            </div>
+            
+            <div className="flex-1 space-y-1">
+              <h4 className="text-sm font-bold text-white">Calculus X ∞</h4>
+              <p className="text-[10px] text-white/50 leading-relaxed font-mono">
+                Install Infinity OS on your mobile home screen for a native, full-screen, and offline computational experience.
+              </p>
+            </div>
+          </div>
+
+          {isInstalled ? (
+            <div 
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-mono text-xs font-bold border"
+              style={{
+                background: `rgba(${colors.primaryRgb}, 0.05)`,
+                borderColor: `rgba(${colors.primaryRgb}, 0.2)`,
+                color: colors.primary
+              }}
+            >
+              <span>✅ STATUS: STANDALONE ACTIVE</span>
+            </div>
+          ) : isInstallable ? (
+            <motion.button
+              onClick={handleInstallClick}
+              whileTap={{ scale: 0.96 }}
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl font-mono text-xs font-bold transition-all relative overflow-hidden group active:scale-95 cursor-pointer"
+              style={{
+                background: `linear-gradient(135deg, ${colors.primary} 0%, ${colors.secondary} 100%)`,
+                boxShadow: `0 4px 15px rgba(${colors.primaryRgb}, 0.3)`,
+                color: '#050510'
+              }}
+            >
+              <span>INSTALL CALCULUS X</span>
+            </motion.button>
+          ) : isIOS ? (
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10 space-y-2">
+              <div className="text-[10px] font-mono text-white/70 flex items-center gap-1.5">
+                <span>📱</span>
+                <span className="font-bold text-white/90">iOS Installation Guide:</span>
+              </div>
+              <p className="text-[9px] text-white/50 leading-relaxed font-mono">
+                Tap the <span className="text-white font-bold">Share button ⎋</span> at the bottom of Safari, scroll down, and select <span className="text-white font-bold">Add to Home Screen ⊞</span>.
+              </p>
+            </div>
+          ) : (
+            <div className="p-3 rounded-xl bg-white/5 border border-white/10 text-center">
+              <p className="text-[10px] text-white/40 font-mono">
+                To install, open this site in Google Chrome or Safari on your phone, then tap the menu options.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* About */}
